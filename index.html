@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GSV ASCII Animator</title>
+<!--
+  Zero-dependency demo for gsv-ascii.js.
+  Everything below is plain DOM — no framework, no build step, works offline.
+  Open this file directly in a browser (file://) and it just runs.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #0a0713; }
+  body {
+    display: flex; min-height: 100vh;
+    font-family: 'Departure Mono', ui-monospace, monospace;
+    color: #e9e4ff;
+  }
+
+  /* ---- left control panel ---- */
+  .panel {
+    flex: 0 0 340px; display: flex; flex-direction: column; gap: 18px;
+    padding: 30px 26px; background: #0d0a18;
+    border-right: 1px solid rgba(150,134,240,.14);
+    overflow-y: auto; max-height: 100vh;
+  }
+  h1 { margin: 0; font-size: 22px; letter-spacing: .16em; font-weight: normal; }
+  .sub { font-size: 10px; letter-spacing: .26em; color: rgba(196,188,255,.34); margin-top: 6px; }
+  .gen-link {
+    display: inline-block; margin-top: 11px; padding: 6px 11px;
+    background: rgba(128,113,221,.12); border: 1px solid rgba(150,134,240,.28);
+    border-radius: 2px; color: rgba(203,199,255,.9);
+    font-size: 9px; letter-spacing: .16em; text-decoration: none;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 9px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .label { font-size: 10px; letter-spacing: .24em; color: rgba(196,188,255,.56); text-transform: uppercase; }
+  .mini-label { font-size: 10px; letter-spacing: .18em; color: rgba(196,188,255,.44); text-transform: uppercase; }
+  .val { font-size: 11px; letter-spacing: .10em; color: var(--accent, #8071dd); }
+
+  textarea {
+    width: 100%; height: 120px; resize: vertical; padding: 11px 12px;
+    background: #07060f; color: #b9b2e6;
+    border: 1px solid rgba(150,134,240,.20); border-radius: 3px;
+    font-family: inherit; font-size: 11px; line-height: 1.35; white-space: pre; overflow: auto;
+  }
+  textarea::placeholder { color: rgba(196,188,255,.25); }
+  textarea:focus { outline: none; border-color: rgba(150,134,240,.5); }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%;
+    height: 3px; background: rgba(150,134,240,.22); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: #cbc7ff; cursor: pointer; box-shadow: 0 0 8px rgba(140,120,235,.7);
+  }
+
+  .seg-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg {
+    flex: 1 1 auto; min-width: 52px; padding: 7px 6px;
+    background: rgba(20,16,40,.5); border: 1px solid rgba(150,134,240,.18);
+    border-radius: 2px; color: rgba(196,188,255,.6);
+    font-family: inherit; font-size: 10px; letter-spacing: .14em; cursor: pointer;
+  }
+  .seg.active { background: rgba(128,113,221,.20); border-color: rgba(180,168,255,.6); color: #f4f2ff; }
+
+  .swatch-wrap { display: flex; gap: 9px; }
+  .swatch {
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; padding: 0;
+  }
+  .swatch.active { border-color: #f4f2ff; }
+
+  .toggle {
+    flex: 1; padding: 9px; background: rgba(20,16,40,.5);
+    border: 1px solid rgba(150,134,240,.18); border-radius: 2px;
+    color: rgba(196,188,255,.5); font-family: inherit; font-size: 10px;
+    letter-spacing: .18em; cursor: pointer;
+  }
+  .toggle.active { background: rgba(128,113,221,.18); border-color: rgba(180,168,255,.55); color: #f4f2ff; }
+
+  /* ---- GIF export box ---- */
+  .gif-box {
+    display: flex; flex-direction: column; gap: 12px; margin-top: 6px; padding: 18px 16px;
+    background: #07060f; border: 1px solid rgba(150,134,240,.16); border-radius: 3px;
+  }
+  .est { font-size: 10px; letter-spacing: .12em; color: rgba(196,188,255,.40); line-height: 1.5; }
+  .export-btn {
+    padding: 11px; background: var(--accent, #8071dd); border: 1px solid var(--accent, #8071dd);
+    border-radius: 2px; color: #0a0713; font-family: inherit; font-size: 11px;
+    letter-spacing: .2em; cursor: pointer; font-weight: bold;
+  }
+  .export-btn:disabled {
+    background: rgba(20,16,40,.6); border-color: rgba(150,134,240,.3);
+    color: rgba(196,188,255,.6); cursor: default;
+  }
+  .prog-track { height: 4px; background: rgba(150,134,240,.18); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; width: 0%; background: var(--accent, #8071dd); box-shadow: 0 0 8px var(--accent, #8071dd); transition: width .1s linear; }
+  .dl {
+    display: block; text-align: center; padding: 10px;
+    background: rgba(128,113,221,.14); border: 1px solid rgba(180,168,255,.5);
+    border-radius: 2px; color: #f4f2ff; font-size: 11px; letter-spacing: .14em; text-decoration: none;
+  }
+  .hidden { display: none; }
+
+  /* ---- right preview ---- */
+  .preview {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 24px; padding: 40px;
+    background: radial-gradient(ellipse 80% 80% at 50% 45%, #100b1e 0%, #0a0713 80%);
+  }
+  .stage-frame {
+    padding: 28px 32px; background: #100b1e;
+    border: 1px solid rgba(150,134,240,.14); border-radius: 4px;
+    box-shadow: 0 1px 0 rgba(150,134,240,.05) inset, 0 18px 60px rgba(0,0,0,.4);
+    max-width: 100%; overflow: auto;
+  }
+  .replay {
+    display: flex; align-items: center; gap: 8px; padding: 9px 18px;
+    background: rgba(20,16,40,.55); border: 1px solid rgba(140,120,235,.45);
+    border-radius: 2px; color: #cbc7ff; font-family: inherit; font-size: 11px;
+    letter-spacing: .2em; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <!-- ===== controls ===== -->
+  <div class="panel">
+    <div>
+      <h1>ASCII&nbsp;ANIMATOR</h1>
+      <div class="sub">GSV ASSEMBLE ENGINE · PASTE ANY ASCII</div>
+      <a class="gen-link" href="https://ascii-art-generator.org" target="_blank" rel="noopener">↗ TURN AN IMAGE INTO ASCII</a>
+    </div>
+
+    <div class="field">
+      <div class="label">Source ASCII</div>
+      <textarea id="ascii" spellcheck="false" placeholder="paste ascii art here…"></textarea>
+    </div>
+
+    <div class="field">
+      <div class="row"><span class="label">Font size</span><span class="val" id="fontSizeLabel">16px</span></div>
+      <input type="range" id="fontSize" min="1" max="30" step="1" value="16">
+    </div>
+
+    <div class="field">
+      <div class="label">Direction</div>
+      <div class="seg-wrap" id="winds"></div>
+    </div>
+
+    <div class="field">
+      <div class="row"><span class="label">Assemble time</span><span class="val" id="speedLabel">1.7s</span></div>
+      <input type="range" id="speed" min="0.4" max="4" step="0.1" value="1.7">
+    </div>
+
+    <div class="field">
+      <div class="label">Accent</div>
+      <div class="swatch-wrap" id="colors"></div>
+    </div>
+
+    <div class="row">
+      <button class="toggle active" id="starfield">STARFIELD</button>
+      <button class="toggle active" id="glow">GLOW</button>
+    </div>
+
+    <!-- ===== GIF export ===== -->
+    <div class="gif-box">
+      <div class="label">Export GIF · raster</div>
+      <div class="field">
+        <div class="row"><span class="mini-label">FPS</span><span class="val" id="fpsLabel">16 fps</span></div>
+        <input type="range" id="fps" min="8" max="24" step="1" value="16">
+      </div>
+      <div class="field">
+        <div class="row"><span class="mini-label">Max width</span><span class="val" id="maxWidthLabel">520px</span></div>
+        <input type="range" id="maxWidth" min="240" max="900" step="20" value="520">
+      </div>
+      <div class="est" id="est"></div>
+      <button class="export-btn" id="export">EXPORT GIF</button>
+      <div class="prog-track hidden" id="progTrack"><div class="prog-fill" id="progFill"></div></div>
+      <a class="dl hidden" id="dl" download="gsv-ascii.gif"></a>
+    </div>
+  </div>
+
+  <!-- ===== preview ===== -->
+  <div class="preview">
+    <div class="stage-frame"><div id="stage"></div></div>
+    <button class="replay" id="replay">↻ REPLAY</button>
+  </div>
+
+  <script src="gsv-ascii.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var DEFAULT_ART = [
+      "        .  *        .            *      .       ",
+      "   *        .---.        .              .    *   ",
+      "      .    /     \\   .        *      .           ",
+      "          |  o o  |          ___                  ",
+      "     *    |   ^   |     .   /   \\      .     *    ",
+      "      .    \\ '-' /    .    | === |   .            ",
+      "           '---'           \\___/        *         ",
+      "   .    *        .   _________________    .       ",
+      "        .            \\===============/       *    ",
+      "   *        .    .    \\=== G S V ===/   .         ",
+      "      .              . \\===========/      .   *   ",
+      "        *      .       '~~~~~~~~~~~'    .          ",
+      "   .       *        .         .      *       .    "
+    ].join("\n");
+
+    var COLORS = ['#8071dd', '#71b8dd', '#71dd9e', '#ddc471', '#dd71a6', '#c9c4e0'];
+    var WINDS = [['right', 'RIGHT'], ['left', 'LEFT'], ['up', 'UP'], ['down', 'DOWN'], ['scatter', 'BURST']];
+
+    // ---- app state ----
+    var state = {
+      ascii: DEFAULT_ART,
+      fontSize: 16,
+      wind: 'right',
+      assembleSeconds: 1.7,
+      accentColor: '#8071dd',
+      starfield: true,
+      glow: true,
+      fps: 16,
+      maxWidth: 520
+    };
+
+    var anim = null;        // current GSVAscii.mount() handle
+    var gifUrl = null;      // object URL for the last exported GIF
+    var exporting = false;
+
+    var $ = function (id) { return document.getElementById(id); };
+    var stage = $('stage');
+
+    // Options passed to the engine, derived from state.
+    function opts() {
+      return {
+        accentColor: state.accentColor,
+        background: '#100b1e',
+        fontSize: state.fontSize,
+        wind: state.wind,
+        assembleSeconds: state.assembleSeconds,
+        holdSeconds: 1.8,
+        loop: true,
+        starfield: state.starfield,
+        glow: state.glow
+      };
+    }
+
+    // Tear down the old animation and mount a fresh one.
+    function remount() {
+      if (anim) anim.destroy();
+      anim = GSVAscii.mount(stage, state.ascii || ' ', opts());
+      document.documentElement.style.setProperty('--accent', state.accentColor);
+    }
+
+    // ---- build the direction segments ----
+    var windsEl = $('winds');
+    WINDS.forEach(function (pair) {
+      var btn = document.createElement('button');
+      btn.className = 'seg' + (state.wind === pair[0] ? ' active' : '');
+      btn.textContent = pair[1];
+      btn.onclick = function () {
+        state.wind = pair[0];
+        [].forEach.call(windsEl.children, function (c, i) {
+          c.classList.toggle('active', WINDS[i][0] === state.wind);
+        });
+        remount();
+      };
+      windsEl.appendChild(btn);
+    });
+
+    // ---- build the accent swatches ----
+    var colorsEl = $('colors');
+    COLORS.forEach(function (c) {
+      var btn = document.createElement('button');
+      btn.className = 'swatch' + (state.accentColor === c ? ' active' : '');
+      btn.style.background = c;
+      btn.title = c;
+      btn.onclick = function () {
+        state.accentColor = c;
+        [].forEach.call(colorsEl.children, function (el, i) {
+          el.classList.toggle('active', COLORS[i] === state.accentColor);
+          el.style.boxShadow = COLORS[i] === state.accentColor ? '0 0 10px ' + COLORS[i] : 'none';
+        });
+        remount();
+      };
+      colorsEl.appendChild(btn);
+    });
+
+    // ---- text + sliders ----
+    var ascii = $('ascii');
+    ascii.value = state.ascii;
+    ascii.oninput = function () { state.ascii = ascii.value; updateEstimate(); remount(); };
+
+    $('fontSize').oninput = function (e) {
+      state.fontSize = +e.target.value;
+      $('fontSizeLabel').textContent = state.fontSize + 'px';
+      updateEstimate(); remount();
+    };
+    $('speed').oninput = function (e) {
+      state.assembleSeconds = +e.target.value;
+      $('speedLabel').textContent = state.assembleSeconds.toFixed(1) + 's';
+      updateEstimate(); remount();
+    };
+    $('fps').oninput = function (e) {
+      state.fps = +e.target.value;
+      $('fpsLabel').textContent = state.fps + ' fps';
+      updateEstimate();
+    };
+    $('maxWidth').oninput = function (e) {
+      state.maxWidth = +e.target.value;
+      $('maxWidthLabel').textContent = state.maxWidth + 'px';
+      updateEstimate();
+    };
+
+    // ---- toggles ----
+    $('starfield').onclick = function () {
+      state.starfield = !state.starfield;
+      this.classList.toggle('active', state.starfield);
+      remount();
+    };
+    $('glow').onclick = function () {
+      state.glow = !state.glow;
+      this.classList.toggle('active', state.glow);
+      remount();
+    };
+
+    $('replay').onclick = function () { if (anim) anim.replay(); };
+
+    // ---- GIF export size estimate ----
+    function updateEstimate() {
+      var pw = 1, ph = 1;
+      try { var g = GSVAscii.parse(state.ascii || ' '); pw = g.pw; ph = g.ph; } catch (e) {}
+      var fs = state.fontSize, cw = 0.6;
+      if (pw * fs * cw > state.maxWidth) fs = state.maxWidth / (pw * cw);
+      var W = Math.ceil(pw * fs * cw), H = Math.ceil(ph * fs);
+      var frames = Math.round((state.assembleSeconds + 1.2) * state.fps);
+      $('est').textContent = W + '×' + H + 'px · ' + frames + ' frames';
+    }
+
+    function fmtSize(b) {
+      return b < 1024 ? b + ' B'
+        : b < 1048576 ? (b / 1024).toFixed(0) + ' KB'
+        : (b / 1048576).toFixed(2) + ' MB';
+    }
+
+    // ---- GIF export ----
+    var exportBtn = $('export'), progTrack = $('progTrack'), progFill = $('progFill'), dl = $('dl');
+    exportBtn.onclick = function () {
+      if (exporting) return;
+      exporting = true;
+      exportBtn.disabled = true;
+      progTrack.classList.remove('hidden');
+      dl.classList.add('hidden');
+      progFill.style.width = '0%';
+      if (gifUrl) { URL.revokeObjectURL(gifUrl); gifUrl = null; }
+
+      GSVAscii.exportGIF(state.ascii || ' ', opts(), {
+        fps: state.fps,
+        maxWidth: state.maxWidth,
+        onProgress: function (p) {
+          progFill.style.width = Math.round(p * 100) + '%';
+          exportBtn.textContent = 'ENCODING ' + Math.round(p * 100) + '%';
+        }
+      }).then(function (blob) {
+        gifUrl = URL.createObjectURL(blob);
+        dl.href = gifUrl;
+        dl.textContent = '↓ DOWNLOAD · ' + fmtSize(blob.size);
+        dl.classList.remove('hidden');
+      }).catch(function (err) {
+        console.error('GIF export failed', err);
+      }).then(function () {
+        exporting = false;
+        exportBtn.disabled = false;
+        exportBtn.textContent = 'EXPORT GIF';
+        progTrack.classList.add('hidden');
+      });
+    };
+
+    // ---- boot ----
+    GSVAscii.ensureFont();
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () {
+      updateEstimate();
+      remount();
+    });
+  })();
+  </script>
+</body>
+</html>
